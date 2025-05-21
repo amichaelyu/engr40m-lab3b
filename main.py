@@ -47,4 +47,4 @@ if __name__ == "__main__":
 
     arduino = serial.Serial(port='/dev/cu.usbserial-DJ00S9MH', baudrate=2000000, timeout=0)
     time.sleep(2)  # wait for the serial connection to establish
-    uvicorn.run(app, host="0.0.0.0", port=4000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

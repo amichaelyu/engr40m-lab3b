@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 // If not, ensure it's set up.
 
 const GRID_SIZE = 8;
-const WEBSOCKET_URL = 'ws://0.0.0.0:4000/serial'; // WebSocket server URL
+const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8080/serial';
 
 // Helper function to initialize the grid
 const createInitialGrid = (): number[][] => Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(0));
@@ -22,36 +22,32 @@ export default function App() {
   // --- WebSocket Connection Effect ---
   useEffect(() => {
     console.log(`Attempting to connect to WebSocket: ${WEBSOCKET_URL}`);
-    websocket.current = new WebSocket(WEBSOCKET_URL);
+    const ws = new WebSocket(WEBSOCKET_URL);
+    websocket.current = ws;
 
-    websocket.current.onopen = () => {
+    ws.onopen = () => {
       console.log('WebSocket connection established.');
       setWsStatus('Connected');
     };
 
-    websocket.current.onclose = (event: CloseEvent) => {
+    ws.onclose = (event: CloseEvent) => {
       console.log('WebSocket connection closed.', event);
       setWsStatus(`Disconnected (Code: ${event.code}, Reason: ${event.reason || 'N/A'})`);
     };
 
-    websocket.current.onerror = (error: Event) => {
+    ws.onerror = (error: Event) => {
       console.error('WebSocket error:', error);
       setWsStatus('Error');
     };
 
-    // Optional: Handle incoming messages if your server sends any
-    // websocket.current.onmessage = (event) => {
-    //   console.log('WebSocket message received:', event.data);
-    // };
-
-    // Cleanup function to close WebSocket on component unmount
+    // Cleanup function to close WebSocket on component unmount only
     return () => {
-      if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
         console.log('Closing WebSocket connection.');
-        websocket.current.close();
+        ws.close();
       }
     };
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []); // Only run once on mount/unmount
 
   // --- Send Data via WebSocket Effect ---
   const sendDataViaWebSocket = useCallback(() => {
@@ -123,6 +119,42 @@ export default function App() {
     };
   }, [handleMouseUpGlobal]);
 
+  // --- Touch Handlers for Mobile ---
+  const handleTouchStart = (rowIndex: number, colIndex: number, e: React.TouchEvent) => {
+    e.preventDefault();
+    setIsMouseDown(true);
+    handleMouseDown(rowIndex, colIndex);
+  };
+
+const getCellFromTouch = (touch: Touch, gridRef: React.RefObject<HTMLDivElement | null>) => {
+  if (!gridRef.current) return null;
+  const rect = gridRef.current.getBoundingClientRect();
+  const x = touch.clientX - rect.left;
+  const y = touch.clientY - rect.top;
+  const cellWidth = rect.width / GRID_SIZE;
+  const cellHeight = rect.height / GRID_SIZE;
+  const col = Math.floor(x / cellWidth);
+  const row = Math.floor(y / cellHeight);
+  if (row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE) {
+    return { row, col };
+  }
+  return null;
+};
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMouseDown) return;
+    const touch = e.touches[0] as Touch;
+    const cell = getCellFromTouch(touch, gridRef);
+    if (cell) {
+      handleMouseEnter(cell.row, cell.col);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsMouseDown(false);
+  };
+
   // --- Control Button Handlers ---
   const handleClearGrid = () => {
     setGridData(createInitialGrid());
@@ -172,9 +204,11 @@ export default function App() {
 
         {/* Grid */}
         <div
+          ref={gridRef}
           className="grid grid-cols-8 gap-0.5 border border-gray-400 bg-gray-400 rounded-md overflow-hidden shadow-md"
           onMouseLeave={handleMouseUpGlobal}
           onDragStart={(e) => e.preventDefault()}
+          onTouchMove={handleTouchMove}
         >
           {gridData.map((row, rowIndex) =>
             row.map((cell, colIndex) => (
@@ -184,6 +218,8 @@ export default function App() {
                             ${cell === 1 ? 'bg-gray-800' : 'bg-white hover:bg-gray-200'}`}
                 onMouseDown={() => handleMouseDown(rowIndex, colIndex)}
                 onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
+                onTouchStart={e => handleTouchStart(rowIndex, colIndex, e)}
+                onTouchEnd={handleTouchEnd}
               />
             ))
           )}
