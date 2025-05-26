@@ -3,11 +3,6 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 import serial.tools.list_ports
 
-# Print all available serial ports
-print("Available serial ports:")
-for port in serial.tools.list_ports.comports():
-    print(port.device)
-
 data = []
 app = FastAPI()
 
@@ -36,7 +31,6 @@ async def websocket_endpoint(websocket: WebSocket):
             for line in data.splitlines():
                 arduino.write(str.encode(line))
                 time.sleep(0.001)
-
         except Exception as e:
             print(f"Error: {e}")
             break
@@ -45,6 +39,10 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
 
-    arduino = serial.Serial(port='/dev/cu.usbserial-DJ00S9MH', baudrate=2000000, timeout=0)
+    print("Available serial ports:")
+    for port in serial.tools.list_ports.comports():
+        print(port.device)
+
+    arduino = serial.Serial(port='/dev/cu.usbserial-DJ00S9MH', baudrate=57600, timeout=0)
     time.sleep(2)  # wait for the serial connection to establish
     uvicorn.run(app, host="0.0.0.0", port=8080)

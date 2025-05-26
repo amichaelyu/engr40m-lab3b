@@ -52,7 +52,7 @@ export default function App() {
   // --- Send Data via WebSocket Effect ---
   const sendDataViaWebSocket = useCallback(() => {
     if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
-      const dataString = gridData.map(row => row.join('')).join('\n');
+      const dataString = gridData.map(row => row.join('') + "8").join('\n');
       try {
         websocket.current.send(dataString);
         console.log('Grid data sent via WebSocket:', dataString);
